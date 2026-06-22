@@ -7,14 +7,22 @@ namespace TheaterDim;
 
 static class Program
 {
+    static Mutex? _single;
+
     [STAThread]
     static void Main()
     {
+        // Single instance: logon task must not spawn a 2nd tray icon / port clash.
+        _single = new Mutex(true, "TheaterDim_SingleInstance_2f7a13", out bool created);
+        if (!created) return;
+
         // PerMonitorV2 = correct Screen.Bounds on mixed-DPI multi-monitor setups.
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.Run(new TheaterContext());
+
+        GC.KeepAlive(_single);
     }
 }
 

@@ -49,5 +49,17 @@ dotnet publish -c Release -r win-x64
 - [x] Tray app + multi-monitor dimming (auto-follow + manual main display)
 - [x] Embedded web remote (play/pause, vol ±, seek ±5/±30, fullscreen, subs, playlist)
 - [x] Auth token on remote endpoints
+- [x] Single-instance guard (mutex)
+- [x] Autostart: hidden logon Scheduled Task `TheaterDim` → the exe
 - [ ] Live state (current time / volume) via SSE
-- [ ] Autostart logon task
+
+## Autostart
+
+Registered as hidden logon Scheduled Task `TheaterDim` pointing at the Release exe.
+
+```powershell
+Start-ScheduledTask TheaterDim          # start now
+Get-ScheduledTask TheaterDim            # State should be Running
+Unregister-ScheduledTask TheaterDim -Confirm:$false   # remove
+```
+After `dotnet publish`/rebuild the exe path stays the same, so the task keeps working.
