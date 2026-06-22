@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace TheaterDim;
 
@@ -12,6 +13,12 @@ static class PotPlayer
 
     [DllImport("user32.dll")]
     static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    static extern int GetWindowText(IntPtr hWnd, StringBuilder s, int max);
+
+    [DllImport("user32.dll")]
+    static extern int GetWindowTextLength(IntPtr hWnd);
 
     // 64-bit class is PotPlayer64; try fallbacks for other builds.
     static readonly string[] Classes = { "PotPlayer64", "PotPlayer", "PotPlayerMini64", "PotPlayerMini" };
@@ -62,4 +69,19 @@ static class PotPlayer
         => Commands.TryGetValue(name, out int id) && Send(id);
 
     public static bool IsRunning => Find() != IntPtr.Zero;
+
+    /// <summary>Current PotPlayer window title (usually the playing media), "" if not running.</summary>
+    public static string Title()
+    {
+        var h = Find();
+        if (h == IntPtr.Zero) return "";
+        int len = GetWindowTextLength(h);
+        if (len <= 0) return "";
+        var sb = new StringBuilder(len + 1);
+        GetWindowText(h, sb, sb.Capacity);
+        string t = sb.ToString();
+        int i = t.LastIndexOf(" - PotPlayer", StringComparison.OrdinalIgnoreCase);
+        if (i > 0) t = t.Substring(0, i);
+        return t.Trim();
+    }
 }

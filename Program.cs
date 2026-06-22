@@ -26,6 +26,14 @@ static class Program
     }
 }
 
+// Thread-safe handoff between the web remote (background threads) and the
+// dimming Tick (UI thread). Only volatile bools cross the boundary -> no Invoke.
+sealed class RemoteShared
+{
+    public volatile bool ForceTheater; // manual dim requested from the phone/tray
+    public volatile bool DimActive;     // overlays currently shown (for UI feedback)
+}
+
 // Persisted config in %APPDATA%\TheaterDim\settings.json
 class Settings
 {
@@ -115,6 +123,9 @@ class TheaterContext : ApplicationContext
     readonly System.Windows.Forms.Timer timer;
     readonly List<OverlayForm> overlays = new();
     readonly WebRemote remote;
+    readonly RemoteShared shared = new();
+    readonly Icon iconIdle = IconFactory.Clapper(false);
+    readonly Icon iconActive = IconFactory.Clapper(true);
 
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
@@ -127,7 +138,7 @@ class TheaterContext : ApplicationContext
 
         tray = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = iconIdle,
             Text = "TheaterDim",
             Visible = true
         };
@@ -135,7 +146,7 @@ class TheaterContext : ApplicationContext
 
         // Web remote
         cfg.EnsureToken();
-        remote = new WebRemote(cfg);
+        remote = new WebRemote(cfg, shared);
         StartRemote();
 
         RefreshMenu();
@@ -168,16 +179,34 @@ class TheaterContext : ApplicationContext
         if (cfg.Enabled)
         {
             IntPtr h = GetForegroundWindow();
+            Screen? videoScreen = null;
             if (h != IntPtr.Zero && IsTrigger(h) && IsFullscreen(h, out var scr))
+                videoScreen = scr;
+
+            if (videoScreen != null)
             {
+                // PotPlayer fullscreen -> dim the others
                 active = true;
                 videoDevice = cfg.AutoFollow || string.IsNullOrEmpty(cfg.MainDeviceName)
-                    ? scr.DeviceName          // follow the monitor PotPlayer is on
-                    : cfg.MainDeviceName;     // manual: keep chosen monitor bright
+                    ? videoScreen.DeviceName
+                    : cfg.MainDeviceName;
+            }
+            else if (shared.ForceTheater)
+            {
+                // Manual theater (phone/tray) without fullscreen -> keep main bright, dim rest
+                active = true;
+                videoDevice = !cfg.AutoFollow && !string.IsNullOrEmpty(cfg.MainDeviceName)
+                    ? cfg.MainDeviceName
+                    : (Screen.PrimaryScreen?.DeviceName ?? "");
             }
         }
 
         UpdateOverlays(active, videoDevice);
+
+        bool anyDim = active && overlays.Any(o => o.Visible);
+        shared.DimActive = anyDim;
+        var want = anyDim ? iconActive : iconIdle;
+        if (!ReferenceEquals(tray.Icon, want)) tray.Icon = want;
     }
 
     bool IsTrigger(IntPtr h)
@@ -240,6 +269,10 @@ class TheaterContext : ApplicationContext
         var en = new ToolStripMenuItem("Enabled") { Checked = cfg.Enabled };
         en.Click += (_, _) => { cfg.Enabled = !cfg.Enabled; cfg.Save(); RefreshMenu(); };
         m.Items.Add(en);
+
+        var th = new ToolStripMenuItem("Dim now (theater)") { Checked = shared.ForceTheater };
+        th.Click += (_, _) => { shared.ForceTheater = !shared.ForceTheater; RefreshMenu(); };
+        m.Items.Add(th);
 
         var dim = new ToolStripMenuItem("Dim level");
         foreach (int lvl in new[] { 30, 50, 70, 90 })
@@ -326,6 +359,8 @@ class TheaterContext : ApplicationContext
         foreach (var o in overlays) o.Dispose();
         tray.Visible = false;
         tray.Dispose();
+        iconIdle.Dispose();
+        iconActive.Dispose();
         ExitThread();
     }
 }
