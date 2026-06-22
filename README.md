@@ -14,9 +14,11 @@ One process, one tray icon. Survives restart.
 > Needs Windows 10/11 and [PotPlayer](https://potplayer.daum.net/). The installer auto-installs the .NET 9 SDK via winget if it's missing.
 
 1. **Download the code** — green **Code ▸ Download ZIP** button above, then unzip. (Or `git clone` it.)
-2. Open the unzipped folder. **Right-click `install.ps1` ▸ Run with PowerShell.**
-   - Or in a terminal in that folder: `powershell -ExecutionPolicy Bypass -File install.ps1`
+2. Open the unzipped folder and **double-click `Install.bat`**.
+   - (Equivalent: right-click `install.ps1` ▸ Run with PowerShell.)
 3. Click **Yes** on the UAC prompt (needed to add the firewall rule for the phone remote).
+
+Uninstall the same way: double-click **`Uninstall.bat`**.
 
 That's it. The installer:
 - builds a standalone `TheaterDim.exe` (no .NET needed afterwards),
