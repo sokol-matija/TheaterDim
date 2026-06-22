@@ -1,0 +1,15 @@
+# .NET build output
+bin/
+obj/
+[Pp]ublish/
+*.user
+*.suo
+.vs/
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# OS
+Thumbs.db
+desktop.ini
