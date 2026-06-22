@@ -87,7 +87,7 @@ Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
 Get-NetFirewallRule -DisplayName 'TheaterDim Remote' -ErrorAction SilentlyContinue |
     Remove-NetFirewallRule -ErrorAction SilentlyContinue
 New-NetFirewallRule -DisplayName 'TheaterDim Remote' -Direction Inbound -Action Allow `
-    -Protocol TCP -LocalPort $Port -Profile Private -Program $exe | Out-Null
+    -Protocol TCP -LocalPort $Port -Profile Any -Program $exe | Out-Null
 
 # --- start now ---
 Start-ScheduledTask -TaskName $TaskName
