@@ -7,6 +7,11 @@ A tiny Windows tray app for **PotPlayer**. Two things:
 
 One process, one tray icon. Survives restart.
 
+<p align="center">
+  <img src="docs/phone-remote.jpg" width="300" alt="TheaterDim phone remote — live media title, Theater dim button, transport/volume/seek controls">
+  <br><em>The phone remote: live media title + a Theater button to dim the other monitors.</em>
+</p>
+
 ---
 
 ## Install (the friend-friendly way)
