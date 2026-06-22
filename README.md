@@ -14,16 +14,27 @@ One process, one tray icon. Survives restart.
 
 ---
 
-## Install (the friend-friendly way)
+## Install
 
-> Needs Windows 10/11 and [PotPlayer](https://potplayer.daum.net/). The installer auto-installs the .NET 9 SDK via winget if it's missing.
+> Needs Windows 10/11 (x64) and [PotPlayer](https://potplayer.daum.net/).
 
-1. **Download the code** — green **Code ▸ Download ZIP** button above, then unzip. (Or `git clone` it.)
-2. Open the unzipped folder and **double-click `Install.bat`**.
-   - (Equivalent: right-click `install.ps1` ▸ Run with PowerShell.)
-3. Click **Yes** on the UAC prompt (needed to add the firewall rule for the phone remote).
+### Easiest — prebuilt (no .NET, no build) ✅ recommended for non-devs
 
-Uninstall the same way: double-click **`Uninstall.bat`**.
+1. Go to **[Releases](../../releases/latest)** → download **`TheaterDim-win-x64.zip`**.
+2. Unzip, then **double-click `Install.bat`**.
+3. If Windows shows *"Windows protected your PC"* → **More info ▸ Run anyway** (the app is unsigned, that's expected).
+4. Click **Yes** on the UAC prompt (it adds the firewall rule for the phone remote).
+
+Done — the exe is copied to `%LOCALAPPDATA%\TheaterDim`, registered to start at logon, and launched. You can delete the unzipped folder.
+
+### From source (for devs)
+
+1. **Code ▸ Download ZIP** (or `git clone`), unzip.
+2. Double-click **`Install.bat`**. With no prebuilt exe present it auto-installs the .NET 9 SDK (winget) and builds a self-contained exe, then installs as above.
+
+### Uninstall
+
+Double-click **`Uninstall.bat`** (removes the task, firewall rule, and installed exe).
 
 That's it. The installer:
 - builds a standalone `TheaterDim.exe` (no .NET needed afterwards),

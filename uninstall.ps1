@@ -14,10 +14,12 @@ if (-not $isAdmin) {
 }
 
 Stop-Process -Name TheaterDim -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 600
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 Get-NetFirewallRule -DisplayName 'TheaterDim Remote' -ErrorAction SilentlyContinue |
     Remove-NetFirewallRule -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $env:LOCALAPPDATA 'TheaterDim') -Recurse -Force -ErrorAction SilentlyContinue
 
-Write-Host 'TheaterDim uninstalled (task + firewall rule removed).' -ForegroundColor Green
+Write-Host 'TheaterDim uninstalled (task + firewall rule + installed exe removed).' -ForegroundColor Green
 Write-Host 'To wipe settings/token too: Remove-Item "$env:APPDATA\TheaterDim" -Recurse -Force'
 if (-not $env:CI) { Read-Host 'Press Enter to close' | Out-Null }
