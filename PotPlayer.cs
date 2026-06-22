@@ -70,6 +70,9 @@ static class PotPlayer
 
     public static bool IsRunning => Find() != IntPtr.Zero;
 
+    /// <summary>Window handle of the running PotPlayer, or IntPtr.Zero.</summary>
+    public static IntPtr Handle() => Find();
+
     /// <summary>Current PotPlayer window title (usually the playing media), "" if not running.</summary>
     public static string Title()
     {

@@ -126,6 +126,7 @@ class TheaterContext : ApplicationContext
     readonly RemoteShared shared = new();
     readonly Icon iconIdle = IconFactory.Clapper(false);
     readonly Icon iconActive = IconFactory.Clapper(true);
+    HotkeyWindow? hotkey;
 
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
@@ -148,6 +149,13 @@ class TheaterContext : ApplicationContext
         cfg.EnsureToken();
         remote = new WebRemote(cfg, shared);
         StartRemote();
+
+        // Global hotkey Ctrl+Alt+T -> toggle theater dim
+        hotkey = new HotkeyWindow(HotkeyWindow.MOD_CONTROL | HotkeyWindow.MOD_ALT, (uint)Keys.T);
+        hotkey.Pressed += () => { shared.ForceTheater = !shared.ForceTheater; RefreshMenu(); };
+        if (!hotkey.Registered)
+            tray.ShowBalloonTip(4000, "TheaterDim",
+                "Ctrl+Alt+T is taken by another app — use the tray menu to dim.", ToolTipIcon.Warning);
 
         RefreshMenu();
 
@@ -193,11 +201,16 @@ class TheaterContext : ApplicationContext
             }
             else if (shared.ForceTheater)
             {
-                // Manual theater (phone/tray) without fullscreen -> keep main bright, dim rest
+                // Manual theater (hotkey/phone/tray): keep the monitor PotPlayer is on
+                // bright (even windowed); fall back to manual main, then primary.
                 active = true;
-                videoDevice = !cfg.AutoFollow && !string.IsNullOrEmpty(cfg.MainDeviceName)
-                    ? cfg.MainDeviceName
-                    : (Screen.PrimaryScreen?.DeviceName ?? "");
+                IntPtr ph = PotPlayer.Handle();
+                if (ph != IntPtr.Zero)
+                    videoDevice = Screen.FromHandle(ph).DeviceName;
+                else if (!cfg.AutoFollow && !string.IsNullOrEmpty(cfg.MainDeviceName))
+                    videoDevice = cfg.MainDeviceName;
+                else
+                    videoDevice = Screen.PrimaryScreen?.DeviceName ?? "";
             }
         }
 
@@ -270,7 +283,12 @@ class TheaterContext : ApplicationContext
         en.Click += (_, _) => { cfg.Enabled = !cfg.Enabled; cfg.Save(); RefreshMenu(); };
         m.Items.Add(en);
 
-        var th = new ToolStripMenuItem("Dim now (theater)") { Checked = shared.ForceTheater };
+        var th = new ToolStripMenuItem("Dim now (theater)")
+        {
+            Checked = shared.ForceTheater,
+            ShowShortcutKeys = true,
+            ShortcutKeyDisplayString = "Ctrl+Alt+T"
+        };
         th.Click += (_, _) => { shared.ForceTheater = !shared.ForceTheater; RefreshMenu(); };
         m.Items.Add(th);
 
@@ -356,6 +374,7 @@ class TheaterContext : ApplicationContext
     {
         timer.Stop();
         remote.Stop();
+        hotkey?.Dispose();
         foreach (var o in overlays) o.Dispose();
         tray.Visible = false;
         tray.Dispose();
