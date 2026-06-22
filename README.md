@@ -1,26 +1,57 @@
 # TheaterDim
 
-Windows tray app for PotPlayer. Two features:
+A tiny Windows tray app for **PotPlayer**. Two things:
 
-1. **Theater dimming** — when PotPlayer goes fullscreen on one monitor, black overlays dim the *other* monitors. Auto-detects all monitors (2, 3, n).
-2. **Web remote** *(planned)* — small mobile web page served on localhost / LAN / Tailscale. Buttons fire play/pause, volume, seek at PotPlayer. No app install on the phone — just a browser.
+1. **Theater dimming** — dims every monitor *except* the one PotPlayer is playing on. Automatically when PotPlayer goes fullscreen, or on demand via hotkey / phone / tray. Auto-detects any number of monitors (2, 3, …).
+2. **Phone remote** — a small web page on your LAN (token-protected). Play/pause, volume, seek, fullscreen, subtitles, and a **Theater** button — all from your phone's browser. Nothing to install on the phone.
 
-## Stack
+One process, one tray icon. Survives restart.
+
+---
+
+## Install (the friend-friendly way)
+
+> Needs Windows 10/11 and [PotPlayer](https://potplayer.daum.net/). The installer auto-installs the .NET 9 SDK via winget if it's missing.
+
+1. **Download the code** — green **Code ▸ Download ZIP** button above, then unzip. (Or `git clone` it.)
+2. Open the unzipped folder. **Right-click `install.ps1` ▸ Run with PowerShell.**
+   - Or in a terminal in that folder: `powershell -ExecutionPolicy Bypass -File install.ps1`
+3. Click **Yes** on the UAC prompt (needed to add the firewall rule for the phone remote).
+
+That's it. The installer:
+- builds a standalone `TheaterDim.exe` (no .NET needed afterwards),
+- registers a hidden **logon task** so it starts every time you log in,
+- opens the LAN port on the firewall,
+- starts it, and prints your **phone URL**.
+
+### First use
+- **Tray icon**: a clapperboard. Win11 hides new tray icons — click the **`^` overflow** near the clock, then drag it onto the taskbar to pin.
+- **Hotkey**: `Ctrl+Alt+T` toggles the dim from anywhere.
+- **Phone**: same Wi-Fi → open the printed `http://<pc-ip>:8777/?t=<token>` (also shown in tray ▸ Web remote ▸ Show phone URL).
+- Right-click the tray icon for dim level, auto-follow vs manual main display, and remote settings.
+
+### Uninstall
+**Right-click `uninstall.ps1` ▸ Run with PowerShell.** Removes the task + firewall rule.
+
+---
+
+## How it works
 
 | Part | Tech |
 |------|------|
-| Tray + overlays | C# .NET 9, WinForms (`NotifyIcon` + per-monitor click-through layered `Form`) |
-| Fullscreen detect | Win32 `GetForegroundWindow` + `GetWindowRect` vs `Screen.Bounds`, 300 ms poll |
-| Web remote server | Embedded `HttpListener` in same process, background thread |
-| PotPlayer control | `SendMessage(hwnd, WM_COMMAND, id, 0)` to `ahk_class PotPlayer64` |
-| Remote frontend | One static `index.html`, vanilla JS, mobile-first |
+| Tray + overlays | C# .NET 9 WinForms — `NotifyIcon` + one click-through layered `Form` per monitor |
+| Fullscreen / monitor detect | Win32 `GetForegroundWindow` + `GetWindowRect` vs `Screen.Bounds`, 300 ms poll |
+| Web remote | raw `TcpListener` HTTP (no admin/urlacl), token-gated, background thread |
+| PotPlayer control | `SendMessage(hwnd, WM_COMMAND, id, 0)` to window class `PotPlayer64` — no focus needed |
+| Hotkey | `RegisterHotKey` on a hidden message window |
+| Remote UI | one self-contained HTML page, inline Lucide SVG icons, vanilla JS |
 
-One process, one `.exe`. No external services.
+### Security
+The remote controls the PC, so every request needs `?t=<token>` (random, generated on first run, stored in `%APPDATA%\TheaterDim\settings.json`). The server binds all interfaces — works over LAN and Tailscale. Keep the URL private; regenerate the token any time from the tray menu.
 
 ## PotPlayer control reference
 
 `SendMessage(hWnd, 0x0111 /*WM_COMMAND*/, ID, 0)` — target window class `PotPlayer64`.
-SendMessage works without focus; player may be hidden.
 
 | Action | ID | Action | ID |
 |--------|------|--------|------|
@@ -36,30 +67,27 @@ SendMessage works without focus; player may be hidden.
 
 Sources: AutoHotkey PotPlayer x64 library; Unified Remote PotPlayer remote.lua.
 
-## Build / run
+## Dev build / run
 
 ```powershell
-dotnet run -c Release
-# or single exe:
-dotnet publish -c Release -r win-x64
+dotnet run -c Release            # run from source
+dotnet build -c Release          # just compile
+```
+
+Autostart task management:
+```powershell
+Start-ScheduledTask TheaterDim
+Get-ScheduledTask  TheaterDim                       # State should be Running
+Unregister-ScheduledTask TheaterDim -Confirm:$false # remove
 ```
 
 ## Roadmap
 
-- [x] Tray app + multi-monitor dimming (auto-follow + manual main display)
-- [x] Embedded web remote (play/pause, vol ±, seek ±5/±30, fullscreen, subs, playlist)
-- [x] Auth token on remote endpoints
-- [x] Single-instance guard (mutex)
-- [x] Autostart: hidden logon Scheduled Task `TheaterDim` → the exe
-- [ ] Live state (current time / volume) via SSE
-
-## Autostart
-
-Registered as hidden logon Scheduled Task `TheaterDim` pointing at the Release exe.
-
-```powershell
-Start-ScheduledTask TheaterDim          # start now
-Get-ScheduledTask TheaterDim            # State should be Running
-Unregister-ScheduledTask TheaterDim -Confirm:$false   # remove
-```
-After `dotnet publish`/rebuild the exe path stays the same, so the task keeps working.
+- [x] Multi-monitor dimming (auto-follow + manual main display)
+- [x] Web remote (play/pause, vol ±, seek ±5/±30, fullscreen, subs, playlist) with token auth
+- [x] Live status on phone (PotPlayer running + media title)
+- [x] Custom tray icon + Lucide-icon mobile UI
+- [x] Global hotkey `Ctrl+Alt+T`
+- [x] Single-instance guard, logon autostart, one-shot installer
+- [ ] Live volume / seek-bar state via SSE
+- [ ] QR code in tray for the phone URL
