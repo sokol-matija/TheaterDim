@@ -96,5 +96,5 @@ Unregister-ScheduledTask TheaterDim -Confirm:$false # remove
 - [x] Custom tray icon + Lucide-icon mobile UI
 - [x] Global hotkey `Ctrl+Alt+T`
 - [x] Single-instance guard, logon autostart, one-shot installer
+- [x] QR code in tray (Web remote ▸ Show phone URL / QR) — scan to open on phone
 - [ ] Live volume / seek-bar state via SSE
-- [ ] QR code in tray for the phone URL

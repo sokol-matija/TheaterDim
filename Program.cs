@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Win32;
+using QRCoder;
 
 namespace TheaterDim;
 
@@ -273,6 +274,94 @@ class TheaterContext : ApplicationContext
         }
     }
 
+    void ShowRemoteDialog()
+    {
+        string url = remote.Url();
+
+        Bitmap? qr = null;
+        try
+        {
+            var gen = new QRCodeGenerator();
+            var data = gen.CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
+            byte[] png = new PngByteQRCode(data).GetGraphic(8);
+            using var ms = new MemoryStream(png);
+            qr = new Bitmap(ms);
+        }
+        catch { /* show URL only if QR fails */ }
+
+        var f = new Form
+        {
+            Text = "TheaterDim — phone remote",
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            StartPosition = FormStartPosition.CenterScreen,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ShowInTaskbar = false,
+            ClientSize = new Size(300, 420),
+            BackColor = Color.FromArgb(20, 22, 30),
+            Icon = iconIdle
+        };
+
+        var hint = new Label
+        {
+            Text = "Scan with your phone camera (same Wi-Fi):",
+            ForeColor = Color.Gainsboro,
+            AutoSize = false,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Location = new Point(10, 12),
+            Size = new Size(280, 24)
+        };
+        f.Controls.Add(hint);
+
+        if (qr != null)
+        {
+            var pb = new PictureBox
+            {
+                Image = qr,
+                SizeMode = PictureBoxSizeMode.Zoom,
+                BackColor = Color.White,
+                Location = new Point(30, 42),
+                Size = new Size(240, 240)
+            };
+            f.Controls.Add(pb);
+        }
+
+        var urlBox = new TextBox
+        {
+            Text = url,
+            ReadOnly = true,
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = Color.FromArgb(28, 30, 40),
+            ForeColor = Color.Gainsboro,
+            Font = new Font("Consolas", 8.5f),
+            TextAlign = HorizontalAlignment.Center,
+            Location = new Point(14, 296),
+            Size = new Size(272, 24)
+        };
+        f.Controls.Add(urlBox);
+
+        var warn = new Label
+        {
+            Text = "Controls this PC — keep the link private.",
+            ForeColor = Color.FromArgb(200, 150, 90),
+            AutoSize = false,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Location = new Point(10, 324),
+            Size = new Size(280, 20)
+        };
+        f.Controls.Add(warn);
+
+        var copy = new Button { Text = "Copy URL", Location = new Point(40, 360), Size = new Size(100, 32) };
+        copy.Click += (_, _) => { try { Clipboard.SetText(url); } catch { } };
+        var close = new Button { Text = "Close", Location = new Point(160, 360), Size = new Size(100, 32) };
+        close.Click += (_, _) => f.Close();
+        f.Controls.Add(copy);
+        f.Controls.Add(close);
+
+        f.FormClosed += (_, _) => qr?.Dispose();
+        f.ShowDialog();
+    }
+
     void RefreshMenu() => tray.ContextMenuStrip = BuildMenu();
 
     ContextMenuStrip BuildMenu()
@@ -339,15 +428,8 @@ class TheaterContext : ApplicationContext
         };
         rem.DropDownItems.Add(remOn);
 
-        var showUrl = new ToolStripMenuItem("Show phone URL...");
-        showUrl.Click += (_, _) =>
-        {
-            string url = remote.Url();
-            Clipboard.SetText(url);
-            MessageBox.Show(
-                $"Open on your phone (same WiFi):\n\n{url}\n\n(Copied to clipboard.)\nKeep this link private — it controls this PC.",
-                "TheaterDim Remote", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        };
+        var showUrl = new ToolStripMenuItem("Show phone URL / QR...");
+        showUrl.Click += (_, _) => ShowRemoteDialog();
         rem.DropDownItems.Add(showUrl);
 
         var regen = new ToolStripMenuItem("Regenerate token");
