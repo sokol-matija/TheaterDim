@@ -150,24 +150,48 @@ class WebRemote
 
     public string Url() => $"http://{LocalIp()}:{cfg.Port}/?t={cfg.Token}";
 
+    // Pick the real router-facing IPv4. Scores NICs so virtual adapters
+    // (WSL/Hyper-V vEthernet, Tailscale, VM) lose to the gateway-bearing LAN NIC.
     public static string LocalIp()
     {
+        string best = "127.0.0.1";
+        int bestScore = int.MinValue;
         try
         {
             foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
             {
                 if (ni.OperationalStatus != OperationalStatus.Up) continue;
                 if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
-                foreach (var ua in ni.GetIPProperties().UnicastAddresses)
-                    if (ua.Address.AddressFamily == AddressFamily.InterNetwork)
-                    {
-                        string ip = ua.Address.ToString();
-                        if (!ip.StartsWith("169.254")) return ip; // skip APIPA
-                    }
+
+                var props = ni.GetIPProperties();
+                bool hasGateway = props.GatewayAddresses.Any(g =>
+                    g.Address.AddressFamily == AddressFamily.InterNetwork
+                    && !g.Address.Equals(IPAddress.Any));
+
+                string desc = (ni.Description + " " + ni.Name).ToLowerInvariant();
+                bool virtualish = desc.Contains("virtual") || desc.Contains("hyper-v")
+                    || desc.Contains("vethernet") || desc.Contains("wsl")
+                    || desc.Contains("tailscale") || desc.Contains("vmware")
+                    || desc.Contains("virtualbox") || desc.Contains("loopback");
+
+                foreach (var ua in props.UnicastAddresses)
+                {
+                    if (ua.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                    string ip = ua.Address.ToString();
+                    if (ip.StartsWith("169.254")) continue; // APIPA
+
+                    int score = 0;
+                    if (hasGateway) score += 100;                                 // real LAN route
+                    if (ni.NetworkInterfaceType == NetworkInterfaceType.Ethernet) score += 10;
+                    else if (ni.NetworkInterfaceType == NetworkInterfaceType.Wireless80211) score += 8;
+                    if (virtualish) score -= 50;
+
+                    if (score > bestScore) { bestScore = score; best = ip; }
+                }
             }
         }
-        catch { /* fall through */ }
-        return "127.0.0.1";
+        catch { /* fall through to best so far */ }
+        return best;
     }
 
     string Html()
